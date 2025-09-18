@@ -3,8 +3,6 @@ package com.restapi.springrestapi.model;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Getter
-@Setter
 @Entity
 @Data
 @NoArgsConstructor

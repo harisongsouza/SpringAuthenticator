@@ -7,8 +7,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/auth")
@@ -19,31 +22,37 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    // chave secreta para criar admins (apenas para teste, usar variável de ambiente)
+    @Value("${app.adminKey}")
+    private String adminKey;
+
     @PostMapping("/register")
     public ResponseEntity<AppUser> register(@RequestBody AppUser user) {
-        // validações básicas omitted (ex: username único)
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole("ROLE_USER");
+        user.setRole("ROLE_USER"); // sempre ROLE_USER
         AppUser saved = userRepository.save(user);
-        // não retorna a senha por conta do @JsonProperty(WRITE_ONLY)
         return ResponseEntity.ok(saved);
     }
 
-    @PostMapping("/validate")
-    public Map<String, Object> validateToken(@RequestBody Map<String, String> request) {
-        String token = request.get("token");
-
-        if (token == null || !jwtUtil.validateToken(token)) {
-            return Map.of("valid", false);
+    @PostMapping("/register-admin")
+    public ResponseEntity<AppUser> registerAdmin(@RequestBody Map<String, String> request) {
+        String key = request.get("adminKey");
+        if (key == null || !key.equals(adminKey)) {
+            return ResponseEntity.status(403).build(); // Forbidden se chave errada
         }
 
-        String username = jwtUtil.extractUsername(token);
+        String username = request.get("username");
+        String password = request.get("password");
 
-        return Map.of(
-                "valid", true,
-                "username", username
-        );
+        AppUser user = new AppUser();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setRole("ROLE_ADMIN");
+
+        AppUser saved = userRepository.save(user);
+        return ResponseEntity.ok(saved);
     }
+
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody AppUser user) {
@@ -54,7 +63,28 @@ public class AuthController {
             throw new RuntimeException("Senha inválida");
         }
 
-        String token = jwtUtil.generateToken(found.getUsername());
+        // Gera token incluindo a role
+        String token = jwtUtil.generateToken(found.getUsername(), List.of(found.getRole()));
         return ResponseEntity.ok(Map.of("token", token));
     }
+
+
+    @PostMapping("/validate")
+    public Map<String, Object> validateToken(@RequestBody Map<String, String> request) {
+        String token = request.get("token");
+
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return Map.of("valid", false);
+        }
+
+        String username = jwtUtil.extractUsername(token);
+        List<String> roles = jwtUtil.extractRoles(token);
+
+        return Map.of(
+                "valid", true,
+                "username", username,
+                "roles", roles
+        );
+    }
 }
+

@@ -2,6 +2,7 @@ package com.restapi.springrestapi.controller;
 
 import com.restapi.springrestapi.model.Usuario;
 import com.restapi.springrestapi.repository.UsuarioRepository;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,6 +41,7 @@ public class UsuarioController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public void deletar(@PathVariable Long id) {
         repository.deleteById(id);
     }
